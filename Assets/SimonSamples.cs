@@ -22,16 +22,21 @@ public class SimonSamples : MonoBehaviour
     private KMAudio.KMAudioRef _audioRef;
     private bool _isPlaying;
     private bool _isRecording;
-    private Queue<int> _objective = new Queue<int>();
-    private List<List<List<int>>> _possibleObjectives = new List<List<List<int>>>() {
-
-        // First stage
-        new List<List<int>>()
+    private bool _isSolved;
+    private int _currentStage = 0;
+    private int _lastStage = 2;
+    private List<string> _calls = new List<string>();
+    private List<string> _expectedResponses = new List<string>();
+    private int _cursor;
+    private List<List<string>> _possibleCalls = new List<List<string>>()
+    {
+        // Stage 1
+        new List<string>()
         {
-            new List<int>("0212".Select(s => (int)(s)).ToArray()),
-            new List<int>("0213".Select(s => (int)(s)).ToArray()),
-            new List<int>("0012".Select(s => (int)(s)).ToArray()),
-            new List<int>("0112".Select(s => (int)(s)).ToArray()),
+            "0212",
+            "0213",
+            "0012",
+            "0112"
         }
     };
 
@@ -48,7 +53,25 @@ public class SimonSamples : MonoBehaviour
             Pads[i].OnInteract += delegate () { HitPad(j); return false; };
         }
 
-        _objective = new Queue<int>(new[] { 0, 2, 1, 2, 0, 3, 1, 2 });
+        // Determine calls and expected responses
+        for (var stage = 0; stage < 3; stage++)
+        {
+            // Start with previous stage
+            string call = "";
+            if (stage > 0) call = _calls[stage - 1];
+
+            // Glue together two random (different) parts
+            /*int part1 = Rnd.Range(0, _possibleCalls[0].Count), part2;
+            do part2 = Rnd.Range(0, _possibleCalls[0].Count);
+            while (part1 == part2);
+            call += _possibleCalls[0][part1] + _possibleCalls[0][part2];*/
+            call += _possibleCalls[0][Rnd.Range(0, _possibleCalls[0].Count)];
+            _calls.Add(call);
+            Debug.Log(call);
+
+            // For now, no rules, just respond with the same as the call
+            _expectedResponses.Add(call);
+        }
     }
 
     private void PressPlay()
@@ -59,7 +82,7 @@ public class SimonSamples : MonoBehaviour
 
         _isPlaying = true;
         SetLed(PlayButton, true);
-        StartCoroutine(PlayRhythm(new Queue<int>(new [] { 0, 2, 1, 2, 0, 3, 1, 2 })));
+        StartCoroutine(PlayTones(_calls[_currentStage]));
     }
 
     private void PressRecord()
@@ -69,10 +92,11 @@ public class SimonSamples : MonoBehaviour
         if (_isPlaying || _isRecording) return;
 
         _isRecording = true;
+        _cursor = 0;
         SetLed(RecordButton, true);
     }
 
-    private IEnumerator PlayRhythm(Queue<int> tones)
+    private IEnumerator PlayTones(string tones)
     {
         var startTime = Bomb.GetTime();
         while ((int)Bomb.GetTime() == (int)startTime) yield return null;
@@ -80,14 +104,12 @@ public class SimonSamples : MonoBehaviour
         var tonesPerTick = 2;
 
         var nextToneTime = startTime;
-        while (tones.Count > 0)
+        while (tones.Length > 0)
         {
-            PlayTone(tones.Dequeue());
+            PlayTone(int.Parse(tones[0].ToString()));
+            tones = tones.Remove(0, 1);
             nextToneTime = nextToneTime - (1f / tonesPerTick);
-            while (Bomb.GetTime() > nextToneTime)
-            {
-                yield return null;
-            }
+            while (Bomb.GetTime() > nextToneTime) yield return null;
         }
 
         SetLed(PlayButton, false);
@@ -120,21 +142,26 @@ public class SimonSamples : MonoBehaviour
 
         if (_isRecording)
         {
-            if (i == _objective.Peek())
+            if (i == int.Parse(_expectedResponses[_currentStage][_cursor].ToString()))
             {
-                _objective.Dequeue();
-                if (_objective.Count == 0)
+                if (_cursor == _expectedResponses[_currentStage].Length - 1)
                 {
                     _isRecording = false;
                     SetLed(RecordButton, false);
+                    if (_currentStage == _lastStage)
+                    {
+                        GetComponent<KMBombModule>().HandlePass();
+                        _isSolved = true;
+                    }
+                    _currentStage++;
                 }
+                _cursor++;
             }
             else
             {
                 GetComponent<KMBombModule>().HandleStrike();
                 _isRecording = false;
                 SetLed(RecordButton, false);
-                // to do: reset objective
             }
         }
     }
