@@ -34,10 +34,28 @@ public class SimonSamples : MonoBehaviour
         // Stage 1
         new List<string>()
         {
+            "0012",
+            "0112",
             "0212",
             "0213",
-            "0012",
-            "0112"
+        },
+
+        // Stage 2
+        new List<string>()
+        {
+            "0011",
+            "0211",
+            "0312",
+            "0313",
+        },
+
+        // Stage 3
+        new List<string>()
+        {
+            "0011",
+            "1010",
+            "1221",
+            "3232",
         }
     };
 
@@ -68,14 +86,10 @@ public class SimonSamples : MonoBehaviour
                 response = _expectedResponses[stage - 1];
             }
 
-            // Glue together two random (different) parts
-            /*int part1 = Rnd.Range(0, _possibleCalls[0].Count), part2;
-            do part2 = Rnd.Range(0, _possibleCalls[0].Count);
-            while (part1 == part2);
-            call += _possibleCalls[0][part1] + _possibleCalls[0][part2];*/
-            newPart = _possibleCalls[0][Rnd.Range(0, _possibleCalls[0].Count)];
+            // Add new part
+            newPart = _possibleCalls[stage][Rnd.Range(0, _possibleCalls[0].Count)];
             call += newPart;
-            response += ApplyRules(newPart, stage);
+            response += ApplyRules(call, newPart, stage);
             _calls.Add(call);
             _expectedResponses.Add(response);
 
@@ -84,23 +98,24 @@ public class SimonSamples : MonoBehaviour
     }
 
     /**
-     * x: Add up all digits in the serial number and modulo 10.
-     * 0/A Kick
-     * 1/B Snare
-     * 2/C Hi-Hat
-     * 3/D Open Hi-Hat
+     * X: Add up all digits in the serial number and modulo 10.
+     * 0 Bass
+     * 1 Snare
+     * 2 Hi-Hat
+     * 3 Open Hi-Hat
      */
-    private string ApplyRules(string part, int stage)
+    private string ApplyRules(string call, string newPart, int stage)
     {
-        var p = part.Select(i => int.Parse(i.ToString())).ToList();
+        var c = call.Select(i => int.Parse(i.ToString())).ToList();
+        var p = newPart.Select(i => int.Parse(i.ToString())).ToList();
         int x = Bomb.GetSerialNumberNumbers().Sum() % 10;
 
         // Stage 1
         if (stage == 0)
         {
-            // If x<5: 2rd = B/D. Otherwise: swap C/D.
+            // If x is smaller than 5, make the second sound S, or O if it already is. Otherwise, swap all H's and O's.
             if (x < 5)
-                if (p[1] != 1) p[1] = 1; else p[1] = 3;
+                if (c[1] != 1) p[1] = 1; else p[1] = 3;
             else
                 p = p
                     .Select(s => (s == 2 ? -1 : s))
@@ -112,8 +127,26 @@ public class SimonSamples : MonoBehaviour
         // Stage 2
         else if (stage == 1)
         {
-            // If call has number of something, x directly after y ...
-            // if previous response has ...
+            // If the number of H's is 2, make the first sound a O. Otherwise, swap all B's and S's.
+            if (c.Count(s => s == 2) == 2)
+                p[0] = 3;
+            else
+                p = p
+                    .Select(s => (s == 0 ? -1 : s))
+                    .Select(s => (s == 1 ? 0 : s))
+                    .Select(s => (s == -1 ? 1 : s))
+                    .ToList();
+        }
+
+        // Stage 3
+        else if (stage == 3)
+        {
+            // If the number of O's is 2, swap the first two with the second two. Otherwise, reverse the order.
+            // BUGGED: ??
+            if (c.Count(s => s == 3) == 2)
+                p = new List<int>() { p[2], p[3], p[0], p[1] };
+            else
+                p = new List<int>() { p[3], p[2], p[1], p[0] };
         }
 
         return String.Join("", p.Select(i => i.ToString()).ToArray());
