@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using KmHelper;
 using Rnd = UnityEngine.Random;
+using System.Text.RegularExpressions;
 
 public class SimonSamples : MonoBehaviour
 {
@@ -19,6 +20,7 @@ public class SimonSamples : MonoBehaviour
     private static int _moduleIdCounter = 1;
 
     private string[] _sounds = { "Kick", "Snare", "HiHat", "OpenHiHat" };
+    private string[] _soundLetters = { "K", "S", "H", "O" };
     private List<int> _pads = new List<int>() { 0, 1, 2, 3 };
     private KMAudio.KMAudioRef _audioRef;
     private bool _isPlaying;
@@ -55,7 +57,7 @@ public class SimonSamples : MonoBehaviour
             "0011",
             "1010",
             "1221",
-            "3232",
+            "0232",
         }
     };
 
@@ -93,13 +95,18 @@ public class SimonSamples : MonoBehaviour
             _calls.Add(call);
             _expectedResponses.Add(response);
 
-            Debug.Log("Call: " + call + ", Response: " + response);
+            Debug.LogFormat("[Simon Samples #{0}] Stage {1}. Call:{2}. Expected response:{3}.",
+                _moduleId,
+                (stage + 1).ToString(),
+                Regex.Replace(String.Join("", call.Select(x => _soundLetters[int.Parse(x.ToString())]).ToArray()), ".{4}", " $0"),
+                Regex.Replace(String.Join("", response.Select(x => _soundLetters[int.Parse(x.ToString())]).ToArray()), ".{4}", " $0")
+            );
         }
     }
 
     /**
      * X: Add up all digits in the serial number and modulo 10.
-     * 0 Bass
+     * 0 Kick
      * 1 Snare
      * 2 Hi-Hat
      * 3 Open Hi-Hat
@@ -113,7 +120,7 @@ public class SimonSamples : MonoBehaviour
         // Stage 1
         if (stage == 0)
         {
-            // If x is smaller than 5, make the second sound S, or O if it already is. Otherwise, swap all H's and O's.
+            // If x is smaller than 5, make the second sound S, or O if it already is. Otherwise, replace H's with O's and vice versa.
             if (x < 5)
                 if (c[1] != 1) p[1] = 1; else p[1] = 3;
             else
@@ -127,8 +134,18 @@ public class SimonSamples : MonoBehaviour
         // Stage 2
         else if (stage == 1)
         {
-            // If the number of H's is 2, make the first sound a O. Otherwise, swap all B's and S's.
-            if (c.Count(s => s == 2) == 2)
+            // If there are one or more O's, swap the first two sounds with the second two. Otherwise, reverse the order of the sounds.
+            if (c.Count(s => s == 3) > 0)
+                p = new List<int>() { p[2], p[3], p[0], p[1] };
+            else
+                p = new List<int>() { p[3], p[2], p[1], p[0] };
+        }
+
+        // Stage 3
+        else if (stage == 2)
+        {
+            // If the number of H's is 3 or more, make the first sound a O. Otherwise, replace K's with S's and vice versa.
+            if (c.Count(s => s == 2) >= 3)
                 p[0] = 3;
             else
                 p = p
@@ -136,17 +153,6 @@ public class SimonSamples : MonoBehaviour
                     .Select(s => (s == 1 ? 0 : s))
                     .Select(s => (s == -1 ? 1 : s))
                     .ToList();
-        }
-
-        // Stage 3
-        else if (stage == 3)
-        {
-            // If the number of O's is 2, swap the first two with the second two. Otherwise, reverse the order.
-            // BUGGED: ??
-            if (c.Count(s => s == 3) == 2)
-                p = new List<int>() { p[2], p[3], p[0], p[1] };
-            else
-                p = new List<int>() { p[3], p[2], p[1], p[0] };
         }
 
         return String.Join("", p.Select(i => i.ToString()).ToArray());
@@ -233,6 +239,7 @@ public class SimonSamples : MonoBehaviour
                     SetLed(RecordButton, false);
                     if (_currentStage == _lastStage)
                     {
+                        StartCoroutine(BaDumTss());
                         GetComponent<KMBombModule>().HandlePass();
                         _isSolved = true;
                         return;
@@ -256,6 +263,18 @@ public class SimonSamples : MonoBehaviour
         selectable.transform.Find("LedOn").gameObject.SetActive(on);
         selectable.transform.Find("LedOff").gameObject.SetActive(!on);
     }
+
+    private IEnumerator BaDumTss()
+    {
+        yield return new WaitForSeconds(.5f);
+        PlaySound(1);
+        yield return new WaitForSeconds(.1f);
+        PlaySound(0);
+        yield return new WaitForSeconds(.3f);
+        PlaySound(3);
+        yield return null;
+    }
+
 }
 static class MyExtensions
 {
@@ -270,6 +289,14 @@ static class MyExtensions
             list[k] = list[n];
             list[n] = value;
         }
+    }
+
+    public static IList<T> Swap<T>(this IList<T> list, int indexA, int indexB)
+    {
+        T tmp = list[indexA];
+        list[indexA] = list[indexB];
+        list[indexB] = tmp;
+        return list;
     }
 }
  
