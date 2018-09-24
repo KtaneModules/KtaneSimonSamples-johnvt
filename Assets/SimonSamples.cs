@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,6 +32,7 @@ public class SimonSamples : MonoBehaviour
     private List<string> _expectedResponses = new List<string>();
     private int _cursor;
     private List<List<string>> _possibleCalls = new List<List<string>>()
+    
     {
         // Stage 1
         new List<string>()
@@ -266,6 +267,7 @@ public class SimonSamples : MonoBehaviour
 
     private IEnumerator BaDumTss()
     {
+
         yield return new WaitForSeconds(.5f);
         PlaySound(1);
         yield return new WaitForSeconds(.1f);
@@ -275,6 +277,36 @@ public class SimonSamples : MonoBehaviour
         yield return null;
     }
 
+    private string TwitchHelpMessage = @"Use '!{0} press 1 2 3 4' to press the buttons in reading order. Use '!{0} play' to play the sequence. Use '!{0} record' to start recording.";
+
+    IEnumerator ProcessTwitchCommand(string command)
+    {
+        var parts = command.ToLowerInvariant().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length > 1 && parts[0] == "press" && parts.Skip(1).All(part => part.Length == 1 && "1234".Contains(part)))
+        {
+            yield return null;
+
+            for (int i = 1; i < parts.Length; i++)
+            {
+                HitPad(Int32.Parse(parts[i]) - 1);
+                yield return new WaitForSeconds(.5f);
+            }
+        }
+        else if (parts.Length == 2 && (parts[1] == "play" || parts[1] == "record"))
+        {
+            yield return null;
+
+            if (parts[1] == "play")
+            {
+                PressPlay();
+            }
+            else if (parts[1] == "record")
+            {
+                PressRecord();
+            }
+        }
+    }
 }
 static class MyExtensions
 {
