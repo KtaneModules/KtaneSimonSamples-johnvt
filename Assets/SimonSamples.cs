@@ -286,7 +286,7 @@ public class SimonSamples : MonoBehaviour
         if (parts.All(part => part.Length == 1 && "1234".Contains(part)))
         {
             yield return null;
-            for (int i = 1; i < parts.Length; i++)
+            for (int i = 0; i < parts.Length; i++)
             {
                 HitPad(Int32.Parse(parts[i]) - 1);
                 yield return new WaitForSeconds(.5f);
