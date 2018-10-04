@@ -186,18 +186,37 @@ public class SimonSamples : MonoBehaviour
 
         yield return new WaitForSeconds(wait);
 
+        // Sync with bomb timer
         var startTime = Bomb.GetTime();
-        while ((int)Bomb.GetTime() == (int)startTime) yield return null;
-        startTime = Bomb.GetTime();
-        var soundsPerTick = 2;
+        var numSolved = Bomb.GetSolvedModuleNames().Count;
+        while (true)
+        {
+            // Compare the number of seconds left
+            while ((int)Bomb.GetTime() == (int)startTime) yield return null;
 
-        var nextSoundTime = startTime;
+            // Same number of solved? We're synced
+            if (numSolved == Bomb.GetSolvedModuleNames().Count) break;
+
+            // Something got solved in between! Keep waiting
+            startTime = Bomb.GetTime();
+            numSolved = Bomb.GetSolvedModuleNames().Count;
+        }
+
+        var soundsPerTick = 2f;
         while (sounds.Length > 0)
         {
             PlaySound(int.Parse(sounds[0].ToString()));
             sounds = sounds.Remove(0, 1);
-            nextSoundTime = nextSoundTime - (1f / soundsPerTick);
-            while (Bomb.GetTime() > nextSoundTime) yield return null;
+            var speed = 1f;
+            int strikes = Bomb.GetStrikes();
+
+            // Keep (almost) synced with bomb timer, which depends on number of strikes
+            if (strikes == 1) speed /= 1.25f;
+            else if (strikes == 2) speed /= 1.5f;
+            else if (strikes == 3) speed /= 1.75f;
+            else if (strikes > 3) speed /= 2f;
+
+            yield return new WaitForSeconds(1f / soundsPerTick * speed);
         }
 
         SetLed(PlayButton, false);
@@ -277,7 +296,9 @@ public class SimonSamples : MonoBehaviour
         yield return null;
     }
 
+#pragma warning disable 414
     private string TwitchHelpMessage = @"Use '!{0} 1 2 3 4' to hit the pads in reading order. Use '!{0} play' to play the sequence. Use '!{0} record' to start recording.";
+#pragma warning restore 414
 
     IEnumerator ProcessTwitchCommand(string command)
     {
