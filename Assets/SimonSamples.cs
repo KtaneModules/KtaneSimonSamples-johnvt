@@ -244,8 +244,6 @@ public class SimonSamples : MonoBehaviour
 
     private void HitPad(int i)
     {
-        if (_isSolved) return;
-
         GetComponent<KMSelectable>().AddInteractionPunch(.5f);
         PlaySound(_pads[i]);
 
